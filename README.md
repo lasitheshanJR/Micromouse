@@ -62,9 +62,9 @@ Do NOT feed 11.7V directly into the STM32 5V or 3.3V pins or the IR sensors. Doi
 
 ## System Wiring Diagram
 
-![Wiring Diagram](./docs/wiring_diagram.png)
 
 ### Pinout & Schematic Overview
+```bash
 
                      ┌──────────────────────────────────────┐
                      │          11.7V LiPo BATTERY          │
@@ -118,6 +118,7 @@ Do NOT feed 11.7V directly into the STM32 5V or 3.3V pins or the IR sensors. Doi
  │                     PB0 ├──────────────◄│ Mid Right Sensor       │
  │                     PB1 ├──────────────◄│ Far Right Sensor       │
  └─────────────────────────┘               └────────────────────────┘
+```
 
 ### Motor Driver (L293D) Connections
 * **Pin 1 (EN1,2):** Connect to `5V` (Always Enabled)

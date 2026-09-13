@@ -58,7 +58,6 @@ Do NOT feed 11.7V directly into the STM32 5V or 3.3V pins or the IR sensors. Doi
 
 ---
 
-## Complete Wiring Diagram
 
 ## System Wiring Diagram
 

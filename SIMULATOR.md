@@ -1,0 +1,157 @@
+# Running the Simulator (mms)
+
+This project shares one maze-solving core between the real robot and the
+[mackorone/mms](https://github.com/mackorone/mms) simulator. Only the bridge
+(adapter) changes.
+
+```
+include/mouse.h        MouseIO interface + Mouse core (platform-agnostic)
+src/mouse.cpp          flood fill / navigation (identical for both targets)
+
+src/hardware_io.cpp    HardwareIO bridge -> IR sensors + L293D  (firmware)
+sim/sim_io.cpp         SimIO bridge      -> mms stdin/stdout   (host)
+
+src/main.cpp           firmware entry  (uses HardwareIO)
+sim/main.cpp           simulator entry (uses SimIO)
+```
+
+`MouseIO` is the seam between the algorithm and the hardware:
+
+| Method | Meaning |
+| :--- | :--- |
+| `wallFront()`, `wallRight()`, `wallLeft()` | walls relative to the current heading |
+| `moveForward()`, `turnRight()`, `turnLeft()` | one cell / 90 degrees |
+| `showWall()`, `showText()` | optional visualization (no-op on hardware) |
+| `resetRequested()`, `resetAck()` | optional crash/reset handling (simulator only) |
+
+The algorithm in `src/mouse.cpp` never includes `<Arduino.h>` or any simulator
+header, so it builds for both.
+
+## Prerequisites
+
+- **PlatformIO Core.** The VS Code PlatformIO extension already installs the
+  CLI. It lives at `~/.platformio/penv/bin/pio`. Add it to your `PATH` by
+  putting this in `~/.zshrc`:
+
+  ```sh
+  export PATH="$HOME/.platformio/penv/bin:$PATH"
+  ```
+
+  Then reload: `source ~/.zshrc` and verify with `pio --version`.
+
+- **mms.** Download a release from
+  <https://github.com/mackorone/mms/releases> and run the app. On macOS, if you
+  see *"mms.app is damaged"*, clear the quarantine flag:
+
+  ```sh
+  xattr -d com.apple.quarantine mms.app
+  ```
+
+## Build the simulator
+
+From the project root:
+
+```sh
+pio run -e sim
+```
+
+This produces a native host binary (not STM32 firmware) at:
+
+```
+.pio/build/sim/program
+```
+
+> Rebuild with this command after **any** change to `src/mouse.cpp`,
+> `sim/sim_io.cpp` or `sim/main.cpp`, otherwise mms keeps running the old
+> binary.
+
+## Configure mms
+
+Click the **+** button in mms and fill in the fields. Use **absolute paths** —
+mms is a GUI app and does *not* inherit the `PATH` from your shell, so it cannot
+find `pio` (or a relative `program`) on its own.
+
+| Field | Value |
+| :--- | :--- |
+| **Name** | `Micromouse` |
+| **Directory** | `/Volumes/Projects/uni-projects/micromouse` |
+| **Build Command** | `/Users/dulranga/.platformio/penv/bin/pio run -e sim` |
+| **Run Command** | `/Volumes/Projects/uni-projects/micromouse/.pio/build/sim/program` |
+
+Substitute your own project location and home directory. Then:
+
+1. Click **Build** (compiles the native binary).
+2. Click **Run** (launches it and connects to the simulator).
+
+## Logging
+
+The shared core emits a structured trace through the `MouseIO` bridge, and
+each bridge decides where it goes. **stdout is reserved for the mms protocol**,
+so the simulator bridge writes all logs to **stderr**, which mms shows in the
+**Run Output** tab.
+
+Log levels (`LogLevel` in `include/mouse.h`), from most to least verbose:
+
+| Level | Content |
+| :--- | :--- |
+| `Debug` | every mms command/response, wall detections, flood-fill distance, per-step state |
+| `Info` | reset, each move (from/to, action, distance), goal summary |
+| `Warn` | recoverable problems |
+| `Error` | e.g. mms reporting a crash |
+| `None` | silent |
+
+Set the level on the bridge:
+
+```cpp
+io.setLogLevel(LogLevel::Debug); // sim/main.cpp (full trace)
+io.setLogLevel(LogLevel::Info);  // src/main.cpp (on-board Serial)
+```
+
+Example simulator trace:
+
+```
+[   0.000][INFO ] reset: pos=(0,0) heading=N target=(7,7)
+[   0.000][DEBUG] step 1: pos=(0,0) heading=N
+[   0.000][DEBUG] mms -> wallFront | <- false
+[   0.000][DEBUG] sense: pos=(0,0) heading=N front=0 right=0 left=1
+[   0.000][DEBUG] wall added: (0,0) W
+[   0.000][DEBUG] floodFill: dist(0,0)=14
+[   0.000][INFO ] move 1: (0,0) N -> (0,1) N [forward, dist=13]
+...
+[   0.003][INFO ] GOAL reached: steps=14 moves=14 turns=1 walls=8
+```
+
+On hardware, `HardwareIO` writes the same messages to `Serial` (115200). At
+`Debug` it also logs every IR reading (`IR front: 42 51 cm`, etc.), which is
+useful for tuning thresholds.
+
+To silence logging without changing code, use `LogLevel::None`.
+
+## Troubleshooting
+
+**`Child process set up failed: execve: No such file or directory`**
+
+The command mms tried to run does not exist. Check:
+
+- The binary was built: `ls .pio/build/sim/program`.
+- The Run Command points at that file with an **absolute** path.
+- The Build Command uses an **absolute** path to `pio`
+  (`.../.platformio/penv/bin/pio`), not just `pio`. If it still fails, run
+  `pio run -e sim` manually in a terminal and set Build Command to blank.
+
+**mms can't find `pio`**
+
+Same cause: GUI apps don't read `~/.zshrc`. Always use the full path to `pio` in
+the Build Command.
+
+**Algorithm never reaches the goal / crashes**
+
+The simulator maze and the real maze are both 16x16 with the target at `(7, 7)`
+(`Mouse::TARGET_X`, `Mouse::TARGET_Y` in `include/mouse.h`). Adjust those
+constants if your maze differs.
+
+## Adding another bridge
+
+To target a new platform, subclass `MouseIO` and implement the six motion/wall
+methods, then build the shared `Mouse` core against it. No changes to the
+algorithm are required.

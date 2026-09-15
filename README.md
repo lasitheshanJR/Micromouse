@@ -145,11 +145,44 @@ To prevent optical crosstalk between adjacent infrared sensors and keep alignmen
 
 This project is built using **PlatformIO** with the **Arduino Framework** for the STM32 core.
 
-### `platformio.ini` setup:
+The maze-solving algorithm is shared between the real robot and the
+[mackorone/mms](https://github.com/mackorone/mms) simulator; only the hardware
+bridge differs. See [SIMULATOR.md](./SIMULATOR.md) for the full simulator setup
+and mms configuration.
+
+### Build targets (`platformio.ini`)
+
+| Environment | Target | Command |
+| :--- | :--- | :--- |
+| `bluepill_f103c8` | Main firmware (`src/main.cpp`) | `pio run` |
+| `motor_test` | Motor bench test (`testing/src/motor_driver.cpp`) | `pio run -e motor_test -t upload` |
+| `ir_test` | 6x IR diagnostic (`testing/src/ir_working.cpp`) | `pio run -e ir_test -t upload` |
+| `sim` | Native mms simulator (`sim/main.cpp`) | `pio run -e sim` |
+
 ```ini
-[env:bluepill_f103c8]
+[platformio]
+default_envs = bluepill_f103c8
+
+[common]
 platform = ststm32
 board = bluepill_f103c8
 framework = arduino
 upload_protocol = stlink
 monitor_speed = 115200
+
+[env:bluepill_f103c8]
+extends = common
+
+[env:motor_test]
+extends = common
+build_src_filter = +<../testing/src/motor_driver.cpp>
+
+[env:ir_test]
+extends = common
+build_src_filter = +<../testing/src/ir_working.cpp>
+
+[env:sim]
+platform = native
+build_src_filter = +<../sim/> +<../src/mouse.cpp>
+build_flags = -std=c++17
+```

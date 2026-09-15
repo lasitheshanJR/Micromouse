@@ -46,6 +46,13 @@ public:
   virtual bool wallRight() = 0;
   virtual bool wallLeft() = 0;
 
+  // 45-degree forward-corner sensors (the "-45/+45" pair in the fan).
+  // Defaults derive them from the cardinal sensors so a bridge that lacks
+  // them (e.g. the mms simulator) still behaves correctly; HardwareIO
+  // overrides these with the real diagonal sensors.
+  virtual bool wallDiagonalLeft() { return wallFront() || wallLeft(); }
+  virtual bool wallDiagonalRight() { return wallFront() || wallRight(); }
+
   // --- Motion primitives (one cell / 90 degrees) ----------------------
   virtual void moveForward() = 0;
   virtual void turnRight() = 0;
@@ -82,8 +89,17 @@ private:
 class Mouse {
 public:
   static constexpr int MAZE_SIZE = 16;
-  static constexpr int TARGET_X = 7;
-  static constexpr int TARGET_Y = 7;
+
+  // Goal is the central 2x2 block. Sample maze columns/rows 8-9 (1-based)
+  // map to 7-8 (0-based), so the four goal cells are (7..8, 7..8).
+  static constexpr int GOAL_X0 = 7;
+  static constexpr int GOAL_X1 = 8;
+  static constexpr int GOAL_Y0 = 7;
+  static constexpr int GOAL_Y1 = 8;
+
+  static bool isGoalCell(int x, int y) {
+    return x >= GOAL_X0 && x <= GOAL_X1 && y >= GOAL_Y0 && y <= GOAL_Y1;
+  }
 
   explicit Mouse(MouseIO& io);
 
@@ -95,7 +111,7 @@ public:
   // Repeatedly step() until the target is reached.
   void run();
 
-  bool atTarget() const { return posX_ == TARGET_X && posY_ == TARGET_Y; }
+  bool atTarget() const { return isGoalCell(posX_, posY_); }
   int x() const { return posX_; }
   int y() const { return posY_; }
   int heading() const { return heading_; } // 0=N, 1=E, 2=S, 3=W

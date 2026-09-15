@@ -9,6 +9,25 @@ const int DX[4] = {0, 1, 0, -1}; // N, E, S, W
 const int DY[4] = {1, 0, -1, 0};
 const int OPPOSITE[4] = {2, 3, 0, 1};
 const char* DIR_NAME[4] = {"N", "E", "S", "W"};
+
+// Human-readable local topology from the three cardinal walls.
+const char* junctionName(bool front, bool left, bool right) {
+  if (front && left && right)
+    return "cross";
+  if (front && left)
+    return "open-right";
+  if (front && right)
+    return "open-left";
+  if (left && right)
+    return "corridor";
+  if (front)
+    return "dead-end";
+  if (left)
+    return "open-front-right";
+  if (right)
+    return "open-front-left";
+  return "open";
+}
 } // namespace
 
 const char* logLevelName(LogLevel level) {
@@ -55,12 +74,23 @@ void Mouse::reset() {
   for (int x = 0; x < MAZE_SIZE; x++) {
     for (int y = 0; y < MAZE_SIZE; y++) {
       wallMap_[x][y] = 0;
-      distMap_[x][y] = (uint8_t)(abs(x - TARGET_X) + abs(y - TARGET_Y));
+
+      // Seed the initial estimate with the distance to the nearest goal cell.
+      int best = MAZE_SIZE * 2;
+      for (int gx = GOAL_X0; gx <= GOAL_X1; gx++) {
+        for (int gy = GOAL_Y0; gy <= GOAL_Y1; gy++) {
+          int d = abs(x - gx) + abs(y - gy);
+          if (d < best) {
+            best = d;
+          }
+        }
+      }
+      distMap_[x][y] = (uint8_t)best;
     }
   }
 
-  logf(LogLevel::Info, "reset: pos=(0,0) heading=N target=(%d,%d)", TARGET_X,
-       TARGET_Y);
+  logf(LogLevel::Info, "reset: pos=(0,0) heading=N goal=(%d..%d,%d..%d)",
+       GOAL_X0, GOAL_X1, GOAL_Y0, GOAL_Y1);
 }
 
 bool Mouse::inBounds(int x, int y) const {
@@ -97,12 +127,38 @@ void Mouse::addWall(int x, int y, int dir) {
 }
 
 void Mouse::updateWallsFromSensors() {
-  bool front = io_.wallFront();
-  bool right = io_.wallRight();
-  bool left = io_.wallLeft();
+  struct Observation {
+    bool front;
+    bool left;
+    bool right;
+    bool diagLeft;
+    bool diagRight;
+  } obs;
 
-  logf(LogLevel::Debug, "sense: pos=(%d,%d) heading=%s front=%d right=%d left=%d",
-       posX_, posY_, DIR_NAME[heading_], front, right, left);
+  obs.front = io_.wallFront();
+  obs.left = io_.wallLeft();
+  obs.right = io_.wallRight();
+  obs.diagLeft = io_.wallDiagonalLeft();
+  obs.diagRight = io_.wallDiagonalRight();
+
+  logf(LogLevel::Debug,
+       "sense: pos=(%d,%d) heading=%s front=%d left=%d right=%d diagL=%d "
+       "diagR=%d",
+       posX_, posY_, DIR_NAME[heading_], obs.front, obs.left, obs.right,
+       obs.diagLeft, obs.diagRight);
+
+  // A 45-degree beam looking at the forward corner must hit either the side
+  // wall or something ahead. If a diagonal sees a wall that the side sensor
+  // does not, treat it as a front wall: this catches front walls the 0-degree
+  // pair missed (misalignment, sensor cone gaps). For bridges that derive the
+  // diagonal from the cardinal sensors this reduces to the original reading.
+  bool front =
+      obs.front || (obs.diagLeft && !obs.left) || (obs.diagRight && !obs.right);
+  bool left = obs.left;
+  bool right = obs.right;
+
+  logf(LogLevel::Debug, "junction: %s (front=%d left=%d right=%d)",
+       junctionName(front, left, right), front, left, right);
 
   if (front)
     addWall(posX_, posY_, heading_);
@@ -123,10 +179,15 @@ void Mouse::floodFill() {
     }
   }
 
-  distMap_[TARGET_X][TARGET_Y] = 0;
-  queueX[tail] = TARGET_X;
-  queueY[tail] = TARGET_Y;
-  tail++;
+  // All four goal cells are distance 0, so the flood fill targets the region.
+  for (int gx = GOAL_X0; gx <= GOAL_X1; gx++) {
+    for (int gy = GOAL_Y0; gy <= GOAL_Y1; gy++) {
+      distMap_[gx][gy] = 0;
+      queueX[tail] = (uint8_t)gx;
+      queueY[tail] = (uint8_t)gy;
+      tail++;
+    }
+  }
 
   while (head < tail) {
     uint8_t cx = queueX[head];

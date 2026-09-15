@@ -16,6 +16,42 @@ A custom-built autonomous maze-solving and line-following robot using an **STM32
 
 ---
 
+## Track & Maze Specifications
+
+The robot is tuned for the official micromouse sample maze. These measurements
+are encoded in `include/config.h` (geometry) and `include/mouse.h` (goal).
+
+### Maze Layout (Sample Maze)
+
+| Property | Value |
+| :--- | :--- |
+| Grid | **16 × 16** cells (columns 1–16, rows 1–16) |
+| Start | Cell **(1, 1)**, bottom-left corner; start detection at the cell entry/exit boundary |
+| Goal | Central **2 × 2** block, columns **8–9** / rows **8–9**; goal detection at its bottom-right boundary |
+
+### Cell & Wall Dimensions
+
+| Property | Value |
+| :--- | :--- |
+| Cell pitch (lattice point to lattice point) | **192 mm** |
+| Wall / post thickness | **12 mm** |
+| Internal path width (corridor) | **180 mm** (192 − 12) |
+| Wall height | **50 mm** |
+| Sensor optical axis | **10 mm** above the floor |
+
+### Surface Colours
+
+| Surface | Colour |
+| :--- | :--- |
+| Top of the walls | Red |
+| Sides of the walls | White |
+| Floor | Black |
+
+In 0-based indices the goal cells are `(7..8, 7..8)` and the start is `(0, 0)`
+(`Mouse::GOAL_X0/X1/Y0/Y1` in `include/mouse.h`).
+
+---
+
 ## Power System & Buck Converter Setup
 
 The system operates on an **11.7V battery supply**, which is too high to power the STM32 and sensor logic directly.
@@ -46,12 +82,12 @@ Do NOT feed 11.7V directly into the STM32 5V or 3.3V pins or the IR sensors. Doi
 | **Right Motor** | IN2 | **PA3** | GPIO Output (PWM / Direction) |
 | **Left Motor** | IN3 | **PA4** | GPIO Output (PWM / Direction) |
 | **Left Motor** | IN4 | **PA5** | GPIO Output (PWM / Direction) |
-| **Far Left IR Sensor** | Sensor 0 | **PA0** | ADC Pin (ADC Channel 0) |
-| **Mid Left IR Sensor** | Sensor 1 | **PA1** | ADC Pin (ADC Channel 1) |
-| **Center Left IR Sensor** | Sensor 2 | **PA6** | ADC Pin (ADC Channel 6) |
-| **Center Right IR Sensor** | Sensor 3 | **PA7** | ADC Pin (ADC Channel 7) |
-| **Mid Right IR Sensor** | Sensor 4 | **PB0** | ADC Pin (ADC Channel 8) |
-| **Far Right IR Sensor** | Sensor 5 | **PB1** | ADC Pin (ADC Channel 9) |
+| **Far Left IR Sensor** | Sensor 0 | **PB0** | -90 deg, ADC Channel 8 |
+| **Mid Left IR Sensor** | Sensor 1 | **PB1** | -45 deg, ADC Channel 9 |
+| **Center Left IR Sensor** | Sensor 2 | **PA7** | 0 deg (front), ADC Channel 7 |
+| **Center Right IR Sensor** | Sensor 3 | **PA6** | 0 deg (front), ADC Channel 6 |
+| **Mid Right IR Sensor** | Sensor 4 | **PA0** | +45 deg, ADC Channel 0 |
+| **Far Right IR Sensor** | Sensor 5 | **PA1** | +90 deg, ADC Channel 1 |
 | **Status LED** | Onboard LED | **PC13** | Diagnostic / Calibration Blink |
 | **UART Serial TX** | Telemetry | **PA9** | Serial Output (Connect to FTDI RX) |
 | **UART Serial RX** | Telemetry | **PA10** | Serial Input (Connect to FTDI TX) |
@@ -110,12 +146,12 @@ Do NOT feed 11.7V directly into the STM32 5V or 3.3V pins or the IR sensors. Doi
  ┌─────────────────────────┐               ┌────────────────────────┐
  │   STM32 ANALOG PINS     │               │   6x IR SENSOR ARRAY   │
  │                         │               │                        │
- │                     PA0 ├──────────────◄│ Far Left Sensor        │
- │                     PA1 ├──────────────◄│ Mid Left Sensor        │
- │                     PA6 ├──────────────◄│ Center Left Sensor     │
- │                     PA7 ├──────────────◄│ Center Right Sensor    │
- │                     PB0 ├──────────────◄│ Mid Right Sensor       │
- │                     PB1 ├──────────────◄│ Far Right Sensor       │
+ │                     PB0 ├──────────────◄│ Far Left (-90)         │
+ │                     PB1 ├──────────────◄│ Mid Left (-45)         │
+ │                     PA7 ├──────────────◄│ Center Left (0)        │
+ │                     PA6 ├──────────────◄│ Center Right (0)       │
+ │                     PA0 ├──────────────◄│ Mid Right (+45)        │
+ │                     PA1 ├──────────────◄│ Far Right (+90)        │
  └─────────────────────────┘               └────────────────────────┘
 ```
 

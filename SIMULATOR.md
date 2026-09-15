@@ -19,13 +19,26 @@ sim/main.cpp           simulator entry (uses SimIO)
 
 | Method | Meaning |
 | :--- | :--- |
-| `wallFront()`, `wallRight()`, `wallLeft()` | walls relative to the current heading |
+| `wallFront()`, `wallRight()`, `wallLeft()` | cardinal walls relative to the current heading |
+| `wallDiagonalLeft()`, `wallDiagonalRight()` | 45-degree forward-corner sensors (default derives them from the cardinal pair) |
 | `moveForward()`, `turnRight()`, `turnLeft()` | one cell / 90 degrees |
 | `showWall()`, `showText()` | optional visualization (no-op on hardware) |
 | `resetRequested()`, `resetAck()` | optional crash/reset handling (simulator only) |
 
 The algorithm in `src/mouse.cpp` never includes `<Arduino.h>` or any simulator
 header, so it builds for both.
+
+### Sensor fan
+
+The robot carries six analog IR sensors at `-90, -45, 0, 0, +45, +90` degrees
+(see `include/config.h`). The 45-degree pair looks at the forward corners, so a
+reading there that the side sensor does not share is treated as a front wall —
+this catches walls the two 0-degree sensors miss. The core also logs the local
+junction type (`corridor`, `open-left`, `dead-end`, `cross`, ...).
+
+The mms simulator only models cardinal walls, so `SimIO` inherits the default
+diagonal derivation; on hardware `HardwareIO` overrides them with the real
+sensors.
 
 ## Prerequisites
 
@@ -146,8 +159,8 @@ the Build Command.
 
 **Algorithm never reaches the goal / crashes**
 
-The simulator maze and the real maze are both 16x16 with the target at `(7, 7)`
-(`Mouse::TARGET_X`, `Mouse::TARGET_Y` in `include/mouse.h`). Adjust those
+The maze is 16x16 with a central 2x2 goal at cells `(7..8, 7..8)` (0-based),
+configured by `Mouse::GOAL_X0/X1/Y0/Y1` in `include/mouse.h`. Adjust those
 constants if your maze differs.
 
 ## Adding another bridge

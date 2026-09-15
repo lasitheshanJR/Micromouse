@@ -14,6 +14,8 @@ public:
   bool wallFront() override;
   bool wallRight() override;
   bool wallLeft() override;
+  bool wallDiagonalLeft() override;
+  bool wallDiagonalRight() override;
 
   void moveForward() override;
   void turnRight() override;
@@ -23,5 +25,5 @@ protected:
   void emitLog(LogLevel level, const char* message) override;
 
 private:
-  void logDistances(const char* label, float a, float b);
+  void logDistance(const char* label, float cm);
 };

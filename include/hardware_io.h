@@ -21,6 +21,8 @@ public:
   void turnRight() override;
   void turnLeft() override;
 
+  void delayMs(int ms) override;
+
 protected:
   void emitLog(LogLevel level, const char* message) override;
 

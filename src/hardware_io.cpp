@@ -130,3 +130,9 @@ void HardwareIO::turnLeft() {
   delay(200);
   stopMotors();
 }
+
+void HardwareIO::delayMs(int ms) {
+  if (ms > 0) {
+    delay((unsigned long)ms);
+  }
+}

@@ -36,8 +36,8 @@ void setup() {
 }
 
 void loop() {
-  if (mouse.atTarget()) {
-    digitalWrite(kUserLed, LOW); // Turn on LED when target reached
+  if (mouse.done()) {
+    digitalWrite(kUserLed, LOW); // Turn on LED when the whole run is complete
     return;
   }
 

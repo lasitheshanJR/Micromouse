@@ -3,6 +3,7 @@
 #include <chrono>
 #include <cstdio>
 #include <iostream>
+#include <thread>
 
 namespace {
 const char kDirChar[4] = {'n', 'e', 's', 'w'};
@@ -54,8 +55,37 @@ bool SimIO::wallFront() { return query("wallFront"); }
 bool SimIO::wallRight() { return query("wallRight"); }
 bool SimIO::wallLeft() { return query("wallLeft"); }
 
+// mms `wallFront N` checks for a wall N half-steps away. One cell is two
+// half-steps, so probing `cells` cells ahead means (2*cells - 1) half-steps:
+// the wall on the *far* side of the Nth cell sits an odd number of half-steps
+// out. This lets the core map a straight corridor's terminating wall from the
+// current cell.
+bool SimIO::wallFrontAt(int cells) {
+  if (cells <= 1) {
+    return query("wallFront");
+  }
+  return query("wallFront " + std::to_string(2 * cells - 1));
+}
+
 void SimIO::moveForward() {
   std::string response = send("moveForward");
+  if (response == "crash") {
+    log(LogLevel::Error, "mms reported a crash on moveForward");
+  }
+}
+
+// Batched straight burst. A single `moveForward N` earns the effective-distance
+// discount that repeated single-cell moves do not, which is why speed runs use
+// this on long straights.
+void SimIO::moveForward(int cells) {
+  if (cells <= 0) {
+    return;
+  }
+  if (cells == 1) {
+    moveForward();
+    return;
+  }
+  std::string response = send("moveForward " + std::to_string(cells));
   if (response == "crash") {
     log(LogLevel::Error, "mms reported a crash on moveForward");
   }
@@ -76,3 +106,9 @@ void SimIO::showText(int x, int y, const char* text) {
 
 bool SimIO::resetRequested() { return query("wasReset"); }
 void SimIO::resetAck() { send("ackReset"); }
+
+void SimIO::delayMs(int ms) {
+  if (ms > 0) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+  }
+}

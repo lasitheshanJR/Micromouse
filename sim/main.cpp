@@ -24,9 +24,12 @@ int main() {
 
   for (;;) {
     mouse.reset();
+    // run() drives the full lifecycle: explore to the goal, return to the
+    // start mapping fresh corridors, keep re-exploring while an unknown route
+    // could still beat the best known path, then commit to a speed run.
     mouse.run();
 
-    // Idle at the goal until the simulator's reset button is pressed.
+    // Idle until the simulator's reset button is pressed.
     while (!io.resetRequested()) {
       std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }

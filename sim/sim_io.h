@@ -17,8 +17,10 @@ public:
   bool wallFront() override;
   bool wallRight() override;
   bool wallLeft() override;
+  bool wallFrontAt(int cells) override;
 
   void moveForward() override;
+  void moveForward(int cells) override;
   void turnRight() override;
   void turnLeft() override;
 
@@ -27,6 +29,8 @@ public:
 
   bool resetRequested() override;
   void resetAck() override;
+
+  void delayMs(int ms) override;
 
 protected:
   void emitLog(LogLevel level, const char* message) override;

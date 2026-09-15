@@ -123,16 +123,25 @@ io.setLogLevel(LogLevel::Info);  // src/main.cpp (on-board Serial)
 Example simulator trace:
 
 ```
-[   0.000][INFO ] reset: pos=(0,0) heading=N target=(7,7)
-[   0.000][DEBUG] step 1: pos=(0,0) heading=N
+[   0.000][INFO ] reset: pos=(0,0) heading=N goal=(7..8,7..8)
+[   0.000][DEBUG] step 1 [EXPLORE->GOAL]: pos=(0,0) heading=N
 [   0.000][DEBUG] mms -> wallFront | <- false
-[   0.000][DEBUG] sense: pos=(0,0) heading=N front=0 right=0 left=1
+[   0.000][DEBUG] sense: pos=(0,0) heading=N front=0 left=1 right=0 ...
 [   0.000][DEBUG] wall added: (0,0) W
-[   0.000][DEBUG] floodFill: dist(0,0)=14
-[   0.000][INFO ] move 1: (0,0) N -> (0,1) N [forward, dist=13]
+[   0.000][DEBUG] flood(goal,optimistic): cost(0,0)=30
+[   0.000][INFO ] move 1: (0,0) N -> (0,1) N [forward, cost=27]
 ...
-[   0.003][INFO ] GOAL reached: steps=14 moves=14 turns=1 walls=8
+[   0.003][INFO ] GOAL reached: moves=14 turns=1 walls=8
+[   0.006][INFO ] START reached: moves=28 turns=3 walls=15
+[   0.006][INFO ] explore-check: knownBest=29 optimisticBest=29 -> commit
+[   0.006][INFO ] committing to speed run (optimal known path)
+[   0.009][INFO ] SPEED RUN complete: moves=42 turns=5
 ```
+
+The run now has multiple phases: it explores out to the goal (treating
+unknown cells as open), returns to the start mapping fresh corridors, keeps
+re-exploring while an unknown route could still beat the best fully-known
+path, then commits to a turn-penalized optimal speed run.
 
 On hardware, `HardwareIO` writes the same messages to `Serial` (115200). At
 `Debug` it also logs every IR reading (`IR front: 42 51 cm`, etc.), which is

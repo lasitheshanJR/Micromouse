@@ -54,6 +54,7 @@ bool SimIO::query(const std::string& command) { return send(command) == "true"; 
 bool SimIO::wallFront() { return query("wallFront"); }
 bool SimIO::wallRight() { return query("wallRight"); }
 bool SimIO::wallLeft() { return query("wallLeft"); }
+bool SimIO::wallBack() { return query("wallBack"); }
 
 // mms `wallFront N` checks for a wall N half-steps away. One cell is two
 // half-steps, so probing `cells` cells ahead means (2*cells - 1) half-steps:
@@ -65,6 +66,20 @@ bool SimIO::wallFrontAt(int cells) {
     return query("wallFront");
   }
   return query("wallFront " + std::to_string(2 * cells - 1));
+}
+
+bool SimIO::wallLeftAt(int halfSteps) {
+  if (halfSteps <= 1) {
+    return query("wallLeft");
+  }
+  return query("wallLeft " + std::to_string(halfSteps));
+}
+
+bool SimIO::wallRightAt(int halfSteps) {
+  if (halfSteps <= 1) {
+    return query("wallRight");
+  }
+  return query("wallRight " + std::to_string(halfSteps));
 }
 
 void SimIO::moveForward() {
@@ -94,6 +109,27 @@ void SimIO::moveForward(int cells) {
 void SimIO::turnRight() { send("turnRight"); }
 void SimIO::turnLeft() { send("turnLeft"); }
 
+void SimIO::turnRight45() { send("turnRight45"); }
+void SimIO::turnLeft45() { send("turnLeft45"); }
+
+void SimIO::moveForwardHalf(int halfSteps) {
+  if (halfSteps <= 0) {
+    return;
+  }
+  if (halfSteps == 1) {
+    std::string response = send("moveForwardHalf");
+    if (response == "crash") {
+      log(LogLevel::Error, "mms reported a crash on moveForwardHalf");
+    }
+    return;
+  }
+  std::string response =
+      send("moveForwardHalf " + std::to_string(halfSteps));
+  if (response == "crash") {
+    log(LogLevel::Error, "mms reported a crash on moveForwardHalf");
+  }
+}
+
 void SimIO::showWall(int x, int y, int dir) {
   sendCommand("setWall " + std::to_string(x) + " " + std::to_string(y) + " " +
               kDirChar[dir]);
@@ -103,6 +139,14 @@ void SimIO::showText(int x, int y, const char* text) {
   sendCommand("setText " + std::to_string(x) + " " + std::to_string(y) + " " +
               text);
 }
+
+void SimIO::showColor(int x, int y, char color) {
+  sendCommand("setColor " + std::to_string(x) + " " + std::to_string(y) + " " +
+              color);
+}
+
+void SimIO::clearAllColor() { sendCommand("clearAllColor"); }
+void SimIO::clearAllText() { sendCommand("clearAllText"); }
 
 bool SimIO::resetRequested() { return query("wasReset"); }
 void SimIO::resetAck() { send("ackReset"); }

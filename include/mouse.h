@@ -60,6 +60,10 @@ public:
   virtual bool wallFront() = 0;
   virtual bool wallRight() = 0;
   virtual bool wallLeft() = 0;
+  // Wall behind the robot. On the simulator this uses the mms `wallBack`
+  // command, letting us fully map every cell wall on first visit without
+  // turning around. Hardware bridges default to false (rear sensor optional).
+  virtual bool wallBack() { return false; }
 
   // Look ahead for a wall `cells` cells in front (along the current heading).
   // On the mms simulator this maps to `wallFront N` (half-step aware), letting
@@ -94,6 +98,27 @@ public:
     }
   }
 
+  // --- Diagonal / half-step motion (mms simulator only) ----------------
+  // 45-degree turns and half-step moves enable diagonal traversal, cutting
+  // corners instead of doing two cardinal moves. Default no-ops for hardware.
+  virtual void turnRight45() { turnRight(); } // fallback: full 90
+  virtual void turnLeft45() { turnLeft(); }   // fallback: full 90
+  virtual void moveForwardHalf(int halfSteps = 1) {
+    (void)halfSteps;
+    moveForward(); // fallback: one full cell
+  }
+
+  // Side-wall lookahead: check for a wall N half-steps to the left/right.
+  // Enables mapping side walls of cells ahead without visiting them.
+  virtual bool wallLeftAt(int halfSteps) {
+    (void)halfSteps;
+    return wallLeft();
+  }
+  virtual bool wallRightAt(int halfSteps) {
+    (void)halfSteps;
+    return wallRight();
+  }
+
   // --- Optional visualization hooks (no-op on real hardware) ----------
   virtual void showWall(int x, int y, int dir) {
     (void)x;
@@ -105,6 +130,13 @@ public:
     (void)y;
     (void)text;
   }
+  virtual void showColor(int x, int y, char color) {
+    (void)x;
+    (void)y;
+    (void)color;
+  }
+  virtual void clearAllColor() {}
+  virtual void clearAllText() {}
 
   // --- Optional crash/reset handling (only the simulator uses this) ---
   virtual bool resetRequested() { return false; }
@@ -170,14 +202,15 @@ public:
   // margin AND by more than a fraction of the known path length, and we cap the
   // number of laps outright so a maze full of tempting-but-dead shortcuts can
   // never blow up the total penalty.
-  static constexpr uint16_t EXPLORE_MARGIN = 4 * STEP_COST;
+  static constexpr uint16_t EXPLORE_MARGIN = 3 * STEP_COST;
   // Additionally require the gain to exceed knownBest / EXPLORE_GAIN_DIVISOR.
-  static constexpr int EXPLORE_GAIN_DIVISOR = 8;
+  static constexpr int EXPLORE_GAIN_DIVISOR = 6;
   // Hard cap on optimistic explore laps (each lap = out to goal + back).
-  // One out-and-back lap almost always discovers a near-optimal corridor; under
-  // the 0.1-weighted total penalty, additional laps rarely recoup their cost, so
-  // we cap at a single lap by default.
-  static constexpr int MAX_EXPLORE_LAPS = 1;
+  // With enhanced sensing (back-wall, side-wall lookahead, corridor probes),
+  // each lap maps significantly more cells than basic sensing. Two laps
+  // usually discover the optimal corridor; the early-commit check during the
+  // return leg short-circuits if the path converges sooner.
+  static constexpr int MAX_EXPLORE_LAPS = 2;
 
   // How many cells ahead the corridor-lookahead probes for a terminating wall
   // while sensing. Uses `wallFront N`-style queries (mms) so the flood learns
@@ -197,7 +230,7 @@ public:
   static constexpr int SPEED_RUNS = 1;
   // Pre-run pause before the committed speed run. Does not affect the mms score,
   // but gives the operator a clear "about to run" window in the simulator.
-  static constexpr int SPEED_RUN_DELAY_MS = 3000;
+  static constexpr int SPEED_RUN_DELAY_MS = 1000;
 
   explicit Mouse(MouseIO& io);
 
@@ -227,6 +260,9 @@ public:
   int moves() const { return moves_; }
   int turns() const { return turns_; }
   int knownWalls() const;
+
+  // Maximum length of a computed diagonal speed-run path.
+  static constexpr int MAX_PATH_LEN = MAZE_SIZE * MAZE_SIZE;
 
 private:
   void logf(LogLevel level, const char* format, ...);
@@ -264,6 +300,25 @@ private:
   bool worthExploring();
 
   bool inBounds(int x, int y) const;
+
+  // --- Visualization helpers -------------------------------------------
+  void visualizeExploration();    // color cells during exploration
+  void visualizeFloodDistances(); // show flood distances as cell text
+  void visualizeSpeedRunPath();   // highlight the committed speed-run path
+
+  // --- Diagonal speed-run path planner ---------------------------------
+  // Extracts the cardinal flood-fill path, then converts eligible
+  // straight-turn90-straight sequences into 45-in / diagonal / 45-out
+  // sequences, executing them via half-step moves and 45-degree turns.
+  // Returns true if the diagonal run reached the goal successfully.
+  bool runDiagonalSpeedRun();
+
+  // Build the cardinal optimal path from current position to the goal
+  // into pathBuf_. Returns the path length (number of direction entries).
+  int buildCardinalPath(int* pathDirs, int* pathXs, int* pathYs);
+
+  // Execute a diagonal-optimized path using half-step moves.
+  void executeDiagonalPath(const int* pathDirs, int pathLen);
 
   MouseIO& io_;
   uint8_t wallMap_[MAZE_SIZE][MAZE_SIZE];

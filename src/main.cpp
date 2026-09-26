@@ -8,7 +8,7 @@
 #define MAZE_SIZE 16        
 #define TARGET_X 7          
 #define TARGET_Y 7
-#define WALL_THRESHOLD_CM 18.0
+#define WALL_THRESHOLD_CM 16.0
 
 // --- PINOUT DEFINITIONS ---
 #define USER_LED PC13

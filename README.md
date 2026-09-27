@@ -1,4 +1,4 @@
-# 6-Sensor Line & Maze Follower Robot
+# 6-Sensor Line & Maze Follower Robot 
 
 A custom-built autonomous maze-solving and line-following robot using an **STM32F103C8T6 ("Blue Pill")** microcontroller, an **L293D motor driver**, a 6-sensor analog IR array, and a custom 3D-printed sensor bracket.
 

@@ -20,7 +20,7 @@
 #define L293D_IN4 PA3
 
 // Encoders
-#define LEFT_ENC_A  PB3
+#define LEFT_ENC_A  PB3 
 #define LEFT_ENC_B  PB15
 #define RIGHT_ENC_A PA8
 #define RIGHT_ENC_B PA9
@@ -93,7 +93,7 @@ void moveOneCellForward() {
   setMotors(1, 1);
   delay(400); 
   setMotors(0, 0);
-  delay(100);
+  delay(200);
 
   if (heading == 0) posY++;
   else if (heading == 1) posX++;
